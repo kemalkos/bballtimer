@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Basketball Training Interval Timer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Teko:wght@600;700&family=Inter:wght@400;600;800&display=swap');
+    
+    .font-timer {
+      font-family: 'Teko', sans-serif;
+    }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    /* Pulse animation for active countdown */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.98); opacity: 0.8; }
+      50% { transform: scale(1.02); opacity: 1; }
+      100% { transform: scale(0.98); opacity: 0.8; }
+    }
+    .active-pulse {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col justify-between p-4 md:p-6 overflow-x-hidden">
+
+  <!-- Top Bar / Header -->
+  <header class="w-full max-w-2xl mx-auto flex justify-between items-center pb-2 border-b border-zinc-800">
+    <div class="flex items-center space-x-3">
+      <i class="fa-solid font-bold fa-basketball text-orange-500 text-2xl md:text-3xl"></i>
+      <h1 class="text-xl md:text-2xl font-extrabold tracking-wider text-orange-500 uppercase">HoopTimer DE</h1>
+    </div>
+    <div class="flex items-center space-x-2">
+      <button onclick="toggleAudioTest()" class="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 py-1.5 px-3 rounded-lg border border-zinc-700 flex items-center gap-1 transition">
+        <i class="fa-solid fa-volume-high text-orange-500"></i>
+        <span>Audio-Test</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Active Timer View -->
+  <main class="w-full max-w-2xl mx-auto my-auto flex flex-col items-center justify-center text-center py-4">
+    
+    <!-- Status / Sequence Step Info -->
+    <div id="stepContainer" class="mb-2">
+      <span id="currentStepLabel" class="text-lg md:text-2xl font-bold uppercase tracking-widest text-zinc-400">
+        Bereit für Training
+      </span>
+      <div id="sequenceBadge" class="text-xs md:text-sm text-orange-400 font-semibold mt-1 bg-orange-950/40 border border-orange-500/30 px-3 py-1 rounded-full inline-block">
+        Schritt 0 von 0
+      </div>
+    </div>
+
+    <!-- Timer Display Screen -->
+    <div id="timerCard" class="w-full max-w-md bg-zinc-900 border-2 border-zinc-800 rounded-3xl p-6 md:p-8 my-3 shadow-2xl relative overflow-hidden transition-all duration-300">
+      
+      <!-- Screen Background Flash Overlay -->
+      <div id="flashOverlay" class="absolute inset-0 bg-orange-500/0 pointer-events-none transition-colors duration-150"></div>
+
+      <!-- Main Seconds Number -->
+      <div id="timerDisplay" class="font-timer text-[11rem] md:text-[14rem] leading-none font-bold text-orange-500 drop-shadow-[0_10px_20px_rgba(249,115,22,0.2)] tracking-tight">
+        4
+      </div>
+
+      <!-- Progress Bar for Current Step -->
+      <div class="w-full bg-zinc-800 h-3 rounded-full overflow-hidden mt-2">
+        <div id="progressBar" class="bg-orange-500 h-full w-full transition-all duration-200"></div>
+      </div>
+    </div>
+
+    <!-- Active Sequence Overview Pills -->
+    <div id="sequenceTimeline" class="flex flex-wrap justify-center gap-2 max-w-md my-3">
+      <!-- Sequence items injected by JS -->
+    </div>
+
+    <!-- Main Control Buttons -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 w-full max-w-xl">
+      <button id="startBtn" onclick="startTimer()" class="bg-orange-500 hover:bg-orange-400 text-zinc-950 font-black py-4 rounded-2xl shadow-lg shadow-orange-500/20 active:scale-95 transition flex flex-col items-center justify-center text-base md:text-lg uppercase tracking-wider">
+        <i class="fa-solid fa-play text-xl mb-1"></i>
+        <span>Start</span>
+      </button>
+
+      <button id="pauseBtn" onclick="pauseTimer()" class="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black py-4 rounded-2xl shadow-lg active:scale-95 transition flex flex-col items-center justify-center text-base md:text-lg uppercase tracking-wider">
+        <i class="fa-solid fa-pause text-xl mb-1"></i>
+        <span>Pause</span>
+      </button>
+
+      <button id="stopBtn" onclick="stopTimer()" class="bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 text-zinc-200 font-bold py-4 rounded-2xl border border-zinc-700 active:scale-95 transition flex flex-col items-center justify-center text-base md:text-lg uppercase tracking-wider">
+        <i class="fa-solid fa-square text-xl mb-1 text-red-500"></i>
+        <span>Stop</span>
+      </button>
+
+      <button id="restartBtn" onclick="restartTimer()" class="bg-zinc-800 hover:bg-orange-500/20 hover:text-orange-400 text-zinc-200 font-bold py-4 rounded-2xl border border-zinc-700 active:scale-95 transition flex flex-col items-center justify-center text-base md:text-lg uppercase tracking-wider">
+        <i class="fa-solid fa-rotate-left text-xl mb-1 text-orange-500"></i>
+        <span>Neustart</span>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Sequence Configuration / Settings Panel -->
+  <section class="w-full max-w-2xl mx-auto bg-zinc-900/80 backdrop-blur border border-zinc-800 rounded-2xl p-4 md:p-5 mt-auto space-y-4">
+    
+    <!-- Audio & Voice Selection Controls -->
+    <div class="bg-zinc-800/40 border border-zinc-800 rounded-xl p-3">
+      <h2 class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+        <i class="fa-solid fa-microphone text-orange-500"></i>
+        <span>Sprachausgabe & Ton-Einstellungen</span>
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Voice Dropdown -->
+        <div>
+          <label for="voiceSelect" class="block text-xs text-zinc-400 mb-1">Stimme auswählen:</label>
+          <select id="voiceSelect" onchange="changeVoice(this.value)" class="w-full bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus:border-orange-500">
+            <option value="">Lade Stimmen...</option>
+          </select>
+        </div>
+        <!-- Pitch Adjustment -->
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label for="pitchRange" class="text-xs text-zinc-400">Tonhöhe (Pitch):</label>
+            <span id="pitchVal" class="text-xs font-bold text-orange-400">0.8 (Männlicher)</span>
+          </div>
+          <input type="range" id="pitchRange" min="0.5" max="1.5" step="0.1" value="0.8" oninput="updatePitch(this.value)" class="w-full accent-orange-500 cursor-pointer h-1.5 bg-zinc-700 rounded-lg">
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-between items-center">
+      <h2 class="text-sm font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+        <i class="fa-solid fa-sliders text-orange-500"></i>
+        <span>Timer Konfiguration</span>
+      </h2>
+      
+      <!-- Preset Fast Buttons -->
+      <div class="flex gap-1.5">
+        <button onclick="loadPreset([4, 4])" class="text-xs bg-zinc-800 hover:bg-orange-500/20 hover:text-orange-400 text-zinc-300 py-1 px-2.5 rounded-md border border-zinc-700 transition">
+          4s + 4s
+        </button>
+        <button onclick="loadPreset([4, 8])" class="text-xs bg-zinc-800 hover:bg-orange-500/20 hover:text-orange-400 text-zinc-300 py-1 px-2.5 rounded-md border border-zinc-700 transition">
+          4s + 8s
+        </button>
+        <button onclick="loadPreset([8, 8])" class="text-xs bg-zinc-800 hover:bg-orange-500/20 hover:text-orange-400 text-zinc-300 py-1 px-2.5 rounded-md border border-zinc-700 transition">
+          8s + 8s
+        </button>
+      </div>
+    </div>
+
+    <!-- Sequence Steps List -->
+    <div id="stepsList" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+      <!-- Steps rendered dynamically -->
+    </div>
+
+    <!-- Add Step & Options -->
+    <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-zinc-800/80">
+      <div class="flex gap-2">
+        <button onclick="addStep(4)" class="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-2 px-3 rounded-xl border border-zinc-700 flex items-center gap-1 transition">
+          <i class="fa-solid fa-plus text-orange-500"></i> +4s Drill
+        </button>
+        <button onclick="addStep(8)" class="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-2 px-3 rounded-xl border border-zinc-700 flex items-center gap-1 transition">
+          <i class="fa-solid fa-plus text-orange-500"></i> +8s Drill
+        </button>
+      </div>
+
+      <div class="flex items-center space-x-2 text-xs text-zinc-400">
+        <label for="repeatCount" class="font-semibold">Wiederholungen:</label>
+        <select id="repeatCount" onchange="updateRepeatCount(this.value)" class="bg-zinc-800 text-orange-400 border border-zinc-700 rounded-lg px-2 py-1 font-bold focus:outline-none">
+          <option value="1">1x (Einmalig Stoppen)</option>
+          <option value="2">2x Durchgänge</option>
+          <option value="3">3x Durchgänge</option>
+          <option value="5">5x Durchgänge</option>
+          <option value="10">10x Durchgänge</option>
+          <option value="-1">Endlosschleife (Loop)</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- Audio and Notification Logic -->
+  <script>
+    // Web Audio API Context
+    let audioCtx = null;
+    
+    // German Numbers Dictionary (1 to 20)
+    const germanNumbers = {
+      1: "eins", 2: "zwei", 3: "drei", 4: "vier", 5: "fünf",
+      6: "sechs", 7: "sieben", 8: "acht", 9: "neun", 10: "zehn",
+      11: "elf", 12: "zwölf", 13: "dreizehn", 14: "vierzehn", 15: "fünfzehn",
+      16: "sechzehn", 17: "siebzehn", 18: "achtzehn", 19: "neunzehn", 20: "zwanzig"
+    };
+
+    // State
+    let sequence = [4, 4]; // Default timer sequence
+    let currentStepIndex = 0;
+    let secondsLeft = sequence[0];
+    let totalRounds = 1; // Number of times to run whole sequence
+    let currentRound = 1;
+    let isRunning = false;
+    let intervalId = null;
+    let selectedVoiceURI = ""; // Store Voice URI persistently
+    let voicePitch = 0.8; // Defaults to lower pitch for male tone
+    let wakeLock = null;
+
+    // Speech Synthesis setup
+    function initSpeechSynthesis() {
+      if ('speechSynthesis' in window) {
+        const populateVoices = () => {
+          const allVoices = window.speechSynthesis.getVoices();
+          let deVoices = allVoices.filter(v => v.lang.startsWith('de') || v.lang.includes('de-DE'));
+          
+          if (deVoices.length === 0) {
+            deVoices = allVoices; // Fallback to all if no German voice available
+          }
+
+          const voiceSelect = document.getElementById('voiceSelect');
+          if (deVoices.length === 0) {
+            voiceSelect.innerHTML = `<option value="">Standard-Systemstimme</option>`;
+            return;
+          }
+
+          voiceSelect.innerHTML = deVoices.map((v) => {
+            const nameLower = v.name.toLowerCase();
+            const isMale = nameLower.includes('male') || nameLower.includes('stefan') || nameLower.includes('markus') || nameLower.includes('martin') || nameLower.includes('georg') || nameLower.includes('conrad');
+            const label = `${v.name} (${v.lang})${isMale ? ' ♂' : ''}`;
+            return `<option value="${v.voiceURI}">${label}</option>`;
+          }).join('');
+
+          // Preserve existing selection if valid
+          const existingVoice = deVoices.find(v => v.voiceURI === selectedVoiceURI);
+          if (existingVoice) {
+            voiceSelect.value = selectedVoiceURI;
+          } else {
+            // Find preferred male German voice
+            const preferredVoice = deVoices.find(v => {
+              const name = v.name.toLowerCase();
+              return name.includes('stefan') || name.includes('markus') || name.includes('martin') || name.includes('georg') || name.includes('male');
+            }) || deVoices[0];
+
+            if (preferredVoice) {
+              selectedVoiceURI = preferredVoice.voiceURI;
+              voiceSelect.value = preferredVoice.voiceURI;
+            }
+          }
+        };
+
+        populateVoices();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+          speechSynthesis.onvoiceschanged = populateVoices;
+        }
+      }
+    }
+
+    function changeVoice(voiceURI) {
+      selectedVoiceURI = voiceURI;
+    }
+
+    function updatePitch(val) {
+      voicePitch = parseFloat(val);
+      let desc = "Standard";
+      if (voicePitch < 0.9) desc = "Männlicher / Tiefer";
+      if (voicePitch > 1.1) desc = "Höher";
+      document.getElementById('pitchVal').innerText = `${voicePitch} (${desc})`;
+    }
+
+    // Initialize Web Audio
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // Loud High-Punch Sound Between Timers
+    function playDoubleBeep() {
+      try {
+        initAudio();
+        const now = audioCtx.currentTime;
+
+        // Dual-tone high-pitch pierce for maximum court penetration
+        const playPunchTone = (timeOffset) => {
+          const osc1 = audioCtx.createOscillator();
+          const osc2 = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+
+          osc1.type = 'sawtooth';
+          osc1.frequency.setValueAtTime(1400, now + timeOffset);
+          osc2.type = 'square';
+          osc2.frequency.setValueAtTime(2100, now + timeOffset);
+
+          gain.gain.setValueAtTime(0.85, now + timeOffset);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + timeOffset + 0.18);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc1.start(now + timeOffset);
+          osc2.start(now + timeOffset);
+          osc1.stop(now + timeOffset + 0.18);
+          osc2.stop(now + timeOffset + 0.18);
+        };
+
+        playPunchTone(0);
+        playPunchTone(0.20);
+      } catch(e) {
+        console.error("Loud double beep error", e);
+      }
+    }
+
+    // Loud Real Basketball Arena Horn / Siren (Multi-oscillator detuned buzz)
+    function playBasketballArenaHorn() {
+      try {
+        initAudio();
+        const now = audioCtx.currentTime;
+        const duration = 1.4;
+
+        const freqs = [135, 170, 220, 270];
+        
+        freqs.forEach(f => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(f, now);
+          osc.detune.setValueAtTime((Math.random() - 0.5) * 25, now);
+
+          gain.gain.setValueAtTime(0.7, now);
+          gain.gain.setValueAtTime(0.7, now + duration - 0.2);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start(now);
+          osc.stop(now + duration);
+        });
+      } catch(e) {
+        console.error("Horn sound error", e);
+      }
+    }
+
+    // Speak text in German with accurate voice binding
+    function speakGerman(text) {
+      if (!('speechSynthesis' in window)) return;
+      
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'de-DE';
+      utterance.rate = 1.1;
+      utterance.pitch = voicePitch;
+      utterance.volume = 1.0;
+
+      // Freshly lookup voice dynamically right before speaking
+      const voices = window.speechSynthesis.getVoices();
+      if (selectedVoiceURI && voices.length > 0) {
+        const matchedVoice = voices.find(v => v.voiceURI === selectedVoiceURI);
+        if (matchedVoice) {
+          utterance.voice = matchedVoice;
+        }
+      }
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Request Screen WakeLock
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.log('Wake lock request failed:', err);
+      }
+    }
+
+    function releaseWakeLock() {
+      if (wakeLock) {
+        wakeLock.release().then(() => { wakeLock = null; });
+      }
+    }
+
+    // Stop all active audio / speech immediately
+    function stopAllAudio() {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      if (audioCtx && audioCtx.state !== 'closed') {
+        audioCtx.suspend().then(() => {
+          audioCtx.resume();
+        });
+      }
+    }
+
+    // Core Timer Tick Execution
+    function tick() {
+      if (secondsLeft > 0) {
+        const spokenWord = germanNumbers[secondsLeft] || secondsLeft.toString();
+        speakGerman(spokenWord);
+        flashDisplay();
+
+        secondsLeft--;
+        updateUI();
+      } else {
+        currentStepIndex++;
+
+        if (currentStepIndex >= sequence.length) {
+          currentStepIndex = 0;
+          currentRound++;
+
+          if (totalRounds !== -1 && currentRound > totalRounds) {
+            finishTimer();
+            return;
+          }
+        }
+
+        // Louder, punchy double beep between timers
+        playDoubleBeep();
+
+        secondsLeft = sequence[currentStepIndex];
+        updateUI();
+      }
+    }
+
+    // Button Logic
+    function startTimer() {
+      if (sequence.length === 0) return;
+      initAudio();
+      initSpeechSynthesis();
+      
+      if (isRunning) return;
+
+      isRunning = true;
+      requestWakeLock();
+
+      document.getElementById('timerCard').classList.add('active-pulse');
+
+      tick();
+      intervalId = setInterval(tick, 1000);
+    }
+
+    function pauseTimer() {
+      if (!isRunning) return;
+      isRunning = false;
+      clearInterval(intervalId);
+      releaseWakeLock();
+
+      document.getElementById('timerCard').classList.remove('active-pulse');
+      stopAllAudio();
+      updateUI();
+    }
+
+    function stopTimer() {
+      isRunning = false;
+      clearInterval(intervalId);
+      releaseWakeLock();
+
+      stopAllAudio();
+
+      currentStepIndex = 0;
+      currentRound = 1;
+      secondsLeft = sequence[0] || 0;
+
+      document.getElementById('timerCard').classList.remove('active-pulse');
+      document.getElementById('currentStepLabel').innerText = "Gestoppt";
+      document.getElementById('currentStepLabel').className = "text-lg md:text-2xl font-bold uppercase tracking-widest text-red-500";
+      
+      updateUI();
+    }
+
+    function restartTimer() {
+      stopTimer();
+      startTimer();
+    }
+
+    function finishTimer() {
+      isRunning = false;
+      clearInterval(intervalId);
+      releaseWakeLock();
+
+      document.getElementById('timerCard').classList.remove('active-pulse');
+      playBasketballArenaHorn();
+
+      currentStepIndex = 0;
+      currentRound = 1;
+      secondsLeft = sequence[0] || 0;
+      
+      document.getElementById('currentStepLabel').innerText = "Training Beendet!";
+      document.getElementById('currentStepLabel').className = "text-lg md:text-2xl font-bold uppercase tracking-widest text-emerald-400";
+      document.getElementById('timerDisplay').innerText = "0";
+      document.getElementById('progressBar').style.width = "0%";
+    }
+
+    function flashDisplay() {
+      const overlay = document.getElementById('flashOverlay');
+      overlay.className = "absolute inset-0 bg-orange-500/20 pointer-events-none transition-colors duration-150";
+      setTimeout(() => {
+        overlay.className = "absolute inset-0 bg-orange-500/0 pointer-events-none transition-colors duration-150";
+      }, 200);
+    }
+
+    // UI Updates
+    function updateUI() {
+      if (sequence.length === 0) {
+        document.getElementById('timerDisplay').innerText = "-";
+        document.getElementById('currentStepLabel').innerText = "Keine Timer konfiguriert";
+        document.getElementById('sequenceBadge').innerText = "Schritt 0/0";
+        return;
+      }
+
+      document.getElementById('timerDisplay').innerText = secondsLeft;
+
+      if (isRunning) {
+        document.getElementById('currentStepLabel').innerText = `Drill Intervall ${currentStepIndex + 1}`;
+        document.getElementById('currentStepLabel').className = "text-lg md:text-2xl font-bold uppercase tracking-widest text-orange-400";
+      } else if (secondsLeft === sequence[0] && currentStepIndex === 0 && currentRound === 1 && document.getElementById('currentStepLabel').innerText !== "Gestoppt") {
+        document.getElementById('currentStepLabel').innerText = "Bereit für Training";
+        document.getElementById('currentStepLabel').className = "text-lg md:text-2xl font-bold uppercase tracking-widest text-zinc-400";
+      }
+
+      const roundInfo = totalRounds === -1 ? `Runde ${currentRound} (∞)` : `Runde ${currentRound}/${totalRounds}`;
+      document.getElementById('sequenceBadge').innerText = `Intervall ${currentStepIndex + 1} von ${sequence.length} | ${roundInfo}`;
+
+      const totalDuration = sequence[currentStepIndex] || 1;
+      const progressPct = Math.max(0, (secondsLeft / totalDuration) * 100);
+      document.getElementById('progressBar').style.width = `${progressPct}%`;
+
+      renderTimeline();
+      renderStepsConfig();
+    }
+
+    function renderTimeline() {
+      const container = document.getElementById('sequenceTimeline');
+      container.innerHTML = sequence.map((sec, idx) => {
+        const isActive = idx === currentStepIndex && isRunning;
+        const isPast = idx < currentStepIndex;
+        
+        let bgClass = "bg-zinc-800 text-zinc-400 border-zinc-700";
+        if (isActive) bgClass = "bg-orange-500 text-zinc-950 font-black border-orange-400 scale-105 shadow-lg shadow-orange-500/30";
+        else if (isPast) bgClass = "bg-zinc-800/50 text-zinc-600 border-zinc-800";
+
+        return `<div class="px-3 py-1 rounded-xl text-xs md:text-sm border font-semibold transition-all ${bgClass}">
+          ${sec}s
+        </div>`;
+      }).join('');
+    }
+
+    function renderStepsConfig() {
+      const list = document.getElementById('stepsList');
+      list.innerHTML = sequence.map((sec, idx) => `
+        <div class="flex items-center justify-between bg-zinc-800/60 border border-zinc-700/60 rounded-xl px-3 py-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-orange-500 w-5">#${idx + 1}</span>
+            <span class="text-sm font-semibold text-zinc-200">${sec} Sekunden Drill</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="adjustStepDuration(${idx}, -1)" class="w-7 h-7 bg-zinc-700 hover:bg-zinc-600 rounded-lg flex items-center justify-center text-xs font-bold transition">-</button>
+            <span class="text-sm font-bold w-6 text-center text-orange-400">${sec}s</span>
+            <button onclick="adjustStepDuration(${idx}, 1)" class="w-7 h-7 bg-zinc-700 hover:bg-zinc-600 rounded-lg flex items-center justify-center text-xs font-bold transition">+</button>
+            <button onclick="removeStep(${idx})" class="w-7 h-7 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg flex items-center justify-center text-xs transition ml-2">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Config manipulations
+    function addStep(duration = 4) {
+      sequence.push(duration);
+      if (!isRunning && currentStepIndex === 0) {
+        secondsLeft = sequence[0];
+      }
+      updateUI();
+    }
+
+    function removeStep(index) {
+      if (sequence.length <= 1) return;
+      sequence.splice(index, 1);
+      if (currentStepIndex >= sequence.length) currentStepIndex = 0;
+      secondsLeft = sequence[currentStepIndex];
+      updateUI();
+    }
+
+    function adjustStepDuration(index, delta) {
+      const newVal = sequence[index] + delta;
+      if (newVal >= 1 && newVal <= 60) {
+        sequence[index] = newVal;
+        if (index === currentStepIndex && !isRunning) {
+          secondsLeft = newVal;
+        }
+        updateUI();
+      }
+    }
+
+    function loadPreset(presetSeq) {
+      stopTimer();
+      sequence = [...presetSeq];
+      currentStepIndex = 0;
+      currentRound = 1;
+      secondsLeft = sequence[0];
+      updateUI();
+    }
+
+    function updateRepeatCount(val) {
+      totalRounds = parseInt(val, 10);
+      updateUI();
+    }
+
+    function toggleAudioTest() {
+      initAudio();
+      initSpeechSynthesis();
+      speakGerman("Vier, drei, zwei, eins");
+      setTimeout(() => playDoubleBeep(), 1800);
+      setTimeout(() => playBasketballArenaHorn(), 2500);
+    }
+
+    // App Initialization
+    window.onload = () => {
+      initSpeechSynthesis();
+      updateUI();
+    };
+  </script>
+</body>
+</html>
